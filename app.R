@@ -1,5 +1,6 @@
 library(shiny)
 library(queueing)
+library(magick)
 
 # Define UI for application
 ui <- fluidPage(
@@ -26,7 +27,8 @@ ui <- fluidPage(
         # Show a plot of the generated distribution
         mainPanel(
             tabsetPanel(type = "tabs",
-                        tabPanel("Diagram", img(src="fog-model.png")),
+                        #tabPanel("Diagram", img(src="fog-model.png")),
+                        tabPanel("Diagram", imageOutput("imgDiagram")),
                         tabPanel("Throughput Plot", plotOutput("throughputPlot")),
                         tabPanel("Response Time Plot", plotOutput("responseTimePlot")),
                         tabPanel("Mean Customers Plot", plotOutput("meanCustomersPlot")),
@@ -40,6 +42,8 @@ ui <- fluidPage(
 
 # Define server logic required
 server <- function(input, output) {
+    
+    diagram <- image_read("www/fog-model.png")
     
     model <- reactive( {
         # Model parameters
@@ -105,6 +109,14 @@ server <- function(input, output) {
         
         # return all object as a list
         list(througput = result_throughput, mean_customers = result_mean_customers, mean_time = result_mean_time, sum = sum)
+    })
+    
+    output$imgDiagram <- renderImage({
+        tmp_file <- diagram %>%
+            image_annotate(input$c, color = "black", size = 30, location = "+40+20") %>%
+            image_write(tempfile(fileext='png'), format = 'png')
+            
+        list(src = tmp_file, contentType = "image/png")
     })
 
     output$throughputPlot <- renderPlot({
