@@ -1,6 +1,7 @@
 library(shiny)
 library(queueing)
 library(magick)
+library(ggplot2)
 
 # Define UI for application
 ui <- fluidPage(
@@ -14,8 +15,9 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             #img(src="fog-model.png", ),
-            numericInput(inputId = "c", label = "# Customers", value = 100, min = 0, max = 500, step = 10),
-            numericInput(inputId = "mu", label = "Service rate", value = 1/0.2, min = 0.1, max = 10, step = 0.1),
+            numericInput(inputId = "c", label = "# Jobs (Customers)", value = 100, min = 0, max = 500, step = 10),
+            numericInput(inputId = "mu_es", label = "Service rate (ES)", value = 9/10, min = 0.1, max = 1, step = 0.01),
+            numericInput(inputId = "mu", label = "Service rate", value = 4/10, min = 0.1, max = 1, step = 0.01),
             numericInput(inputId = "m_ps", label = "# Processing Servers", value = 10, min = 1, max = 500, step = 1),
             numericInput(inputId = "m_fs", label = "# Fog Servers", value = 10, min = 1, max = 500, step = 1),
             sliderInput(inputId = "d", label = "Database access probability", min = 0, max = 1, step = 0.1, value = 0.5),
@@ -47,7 +49,7 @@ server <- function(input, output) {
     
     model <- reactive( {
         # Model parameters
-        es_service_rate <- input$mu
+        es_service_rate <- input$mu_es
         ps_service_rate <- input$mu
         ds_service_rate <- input$mu
         os_service_rate <- input$mu
@@ -105,6 +107,16 @@ server <- function(input, output) {
             result_mean_time[n] <- m_cjn1$W
         }
         
+        
+        # L:    Returns the mean number of customers of a Closed Jackson Network
+        # W:    Returns the mean time spend in a Closed Jackson Network
+        # X:    -
+        # Lk:   Returns the vector with the mean number of customers in each node (server) of a Closed Jackson Network
+        # Wk:   Returns the vector with the mean time spend in each node (server) of a Closed Jackson Network
+        # Xk:   -
+        # ROk:  Reports a vector with each node (server) use of a Closed Jackson Network.
+        
+        
         sum <- summary(m_cjn1)
         
         # return all object as a list
@@ -120,18 +132,24 @@ server <- function(input, output) {
     })
 
     output$throughputPlot <- renderPlot({
-        mod_list = model()
-        plot(1:input$c, mod_list$througput, main = "Throughput evolution", ylab = "Throughput", xlab = "# Customers", type = "l", col = "blue")
-        # hist(x, breaks = bins, col = 'darkgray', border = 'white')
-        
+        m = model()
+        df <- data.frame(cust=c(1:input$c), thro=m$througput)
+        ggplot(df, aes(x=cust, y=thro,)) + geom_point() + geom_smooth() + labs(title="Throughput evolution") + xlab("# Customers") + ylab("Throughput")
+        #plot(1:input$c, m$througput, main = "Throughput evolution", ylab = "Throughput", xlab = "# Customers", type = "l", col = "blue")
     })
     
     output$responseTimePlot <- renderPlot({
-        plot(1:input$c, model()$mean_time, main = "Mean time evolution", ylab = "Mean Time", xlab = "# Customers", type = "l", col = "blue")
+        m = model()
+        df <- data.frame(cust=c(1:input$c), thro=m$mean_time)
+        ggplot(df, aes(x=cust, y=thro,)) + geom_point() + geom_smooth() + labs(title="Mean time evolution") + xlab("# Customers") + ylab("Mean time")
+        #plot(1:input$c, m$mean_time, main = "Mean time evolution", ylab = "Mean Time", xlab = "# Customers", type = "l", col = "blue")
     })
     
-    output$responseTimePlot <- renderPlot({
-        plot(1:input$c, model()$mean_customers, main = "Mean customers evolution", ylab = "Mean Customers", xlab = "# Customers", type = "l", col = "blue")
+    output$meanCustomersPlot <- renderPlot({
+        m = model()
+        df <- data.frame(cust=c(1:input$c), thro=m$mean_customers)
+        ggplot(df, aes(x=cust, y=thro,)) + geom_point() + geom_smooth() + labs(title="Mean customers evolution") + xlab("# Customers") + ylab("Mean customers")
+        #plot(1:input$c, model()$mean_customers, main = "Mean customers evolution", ylab = "Mean Customers", xlab = "# Customers", type = "l", col = "blue")
     })
     
     output$sum <- renderPrint({
