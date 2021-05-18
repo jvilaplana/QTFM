@@ -17,7 +17,11 @@ ui <- fluidPage(
             #img(src="fog-model.png", ),
             numericInput(inputId = "c", label = "# Jobs (Customers)", value = 100, min = 0, max = 500, step = 10),
             numericInput(inputId = "mu_es", label = "Service rate (ES)", value = 9/10, min = 0.1, max = 1, step = 0.01),
-            numericInput(inputId = "mu", label = "Service rate", value = 4/10, min = 0.1, max = 1, step = 0.01),
+            numericInput(inputId = "mu_ds", label = "Service rate (DS)", value = 4/10, min = 0.1, max = 1, step = 0.01),
+            numericInput(inputId = "mu_ps", label = "Service rate (PS)", value = 4/10, min = 0.1, max = 1, step = 0.01),
+            numericInput(inputId = "mu_os", label = "Service rate (OS)", value = 4/10, min = 0.1, max = 1, step = 0.01),
+            numericInput(inputId = "mu_fs", label = "Service rate (FS)", value = 4/10, min = 0.1, max = 1, step = 0.01),
+            numericInput(inputId = "mu_cs", label = "Service rate (CS)", value = 4/10, min = 0.1, max = 1, step = 0.01),
             numericInput(inputId = "m_ps", label = "# Processing Servers", value = 10, min = 1, max = 500, step = 1),
             numericInput(inputId = "m_fs", label = "# Fog Servers", value = 10, min = 1, max = 500, step = 1),
             sliderInput(inputId = "d", label = "Database access probability", min = 0, max = 1, step = 0.1, value = 0.5),
@@ -31,9 +35,15 @@ ui <- fluidPage(
             tabsetPanel(type = "tabs",
                         #tabPanel("Diagram", img(src="fog-model.png")),
                         tabPanel("Diagram", imageOutput("imgDiagram")),
-                        tabPanel("Throughput Plot", plotOutput("throughputPlot")),
-                        tabPanel("Response Time Plot", plotOutput("responseTimePlot")),
-                        tabPanel("Mean Customers Plot", plotOutput("meanCustomersPlot")),
+                        tabPanel("Performance Plots",
+                                 plotOutput("throughputPlot"),
+                                 plotOutput("responseTimePlot"),
+                                 plotOutput("meanCustomersPlot"),
+                                 plotOutput("ROkPlot")),
+                        #tabPanel("Throughput Plot", plotOutput("throughputPlot")),
+                        #tabPanel("Response Time Plot", plotOutput("responseTimePlot")),
+                        #tabPanel("Mean Customers Plot", plotOutput("meanCustomersPlot")),
+                        #tabPanel("Node Usage Plot", plotOutput("ROkPlot")),
                         tabPanel("Summary", verbatimTextOutput("sum"))
            #plotOutput("throughputPlot"),
            #verbatimTextOutput("sum")
@@ -49,12 +59,12 @@ server <- function(input, output) {
     
     model <- reactive( {
         # Model parameters
-        es_service_rate <- input$mu_es
-        ps_service_rate <- input$mu
-        ds_service_rate <- input$mu
-        os_service_rate <- input$mu
-        cs_service_rate <- input$mu
-        fs_service_rate <- input$mu
+        es_service_rate <- input$mu_es * 2
+        ps_service_rate <- input$mu_ps
+        ds_service_rate <- input$mu_ds * 3.5
+        os_service_rate <- input$mu_os * 3.5
+        cs_service_rate <- input$mu_cs
+        fs_service_rate <- input$mu_fs
         
         # Database access probability
         d <- input$d
@@ -110,17 +120,17 @@ server <- function(input, output) {
         
         # L:    Returns the mean number of customers of a Closed Jackson Network
         # W:    Returns the mean time spend in a Closed Jackson Network
-        # X:    -
+        # X:    (Throughput?)
         # Lk:   Returns the vector with the mean number of customers in each node (server) of a Closed Jackson Network
         # Wk:   Returns the vector with the mean time spend in each node (server) of a Closed Jackson Network
-        # Xk:   -
+        # Xk:   (Throughput for each node)
         # ROk:  Reports a vector with each node (server) use of a Closed Jackson Network.
         
         
         sum <- summary(m_cjn1)
         
         # return all object as a list
-        list(througput = result_throughput, mean_customers = result_mean_customers, mean_time = result_mean_time, sum = sum)
+        list(througput = result_throughput, mean_customers = m_cjn1$Lk, mean_time = result_mean_time, sum = sum, rok = m_cjn1$ROk)
     })
     
     output$imgDiagram <- renderImage({
@@ -147,13 +157,20 @@ server <- function(input, output) {
     
     output$meanCustomersPlot <- renderPlot({
         m = model()
-        df <- data.frame(cust=c(1:input$c), thro=m$mean_customers)
-        ggplot(df, aes(x=cust, y=thro,)) + geom_point() + geom_smooth() + labs(title="Mean customers evolution") + xlab("# Customers") + ylab("Mean customers")
+        df <- data.frame(cust=c(1:length(m$mean_customers)), thro=m$mean_customers)
+        ggplot(df, aes(x=cust, y=thro)) + geom_bar(stat = "identity") + labs(title="Mean customers evolution") + xlab("# Customers") + ylab("Mean customers")
+        #plot(1:input$c, model()$mean_customers, main = "Mean customers evolution", ylab = "Mean Customers", xlab = "# Customers", type = "l", col = "blue")
+    })
+    
+    output$ROkPlot <- renderPlot({
+        m = model()
+        df <- data.frame(cust=c("ES", "PS", "DS", "OS", "CS", "FS"), thro=m$rok)
+        ggplot(df, aes(x=cust, y=thro)) + geom_bar(stat = "identity") + labs(title="Node Usage") + xlab("Node") + ylab("Usage")
         #plot(1:input$c, model()$mean_customers, main = "Mean customers evolution", ylab = "Mean Customers", xlab = "# Customers", type = "l", col = "blue")
     })
     
     output$sum <- renderPrint({
-        model()$sum
+        print(model()$sum, digits = 2)
     })
 }
 
