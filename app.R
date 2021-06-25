@@ -15,6 +15,7 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             #img(src="fog-model.png", ),
+            numericInput(inputId = "sla", label = HTML("<i>SLA</i>: Guaranteed response time"), value = 4, min = 0, max = 10, step = 1),
             numericInput(inputId = "c", label = HTML("<i>J</i>: # Jobs (Customers)"), value = 100, min = 0, max = 500, step = 10),
             numericInput(inputId = "mu_es", label = HTML("&#181;<sup>E</sup>: Service rate (ES)"), value = 9/10, min = 0.1, max = 1, step = 0.01),
             numericInput(inputId = "mu_ds", label = HTML("&#181;<sup>D</sup>: Service rate (DS)"), value = 4/10, min = 0.1, max = 1, step = 0.01),
@@ -75,6 +76,9 @@ server <- function(input, output) {
         # Number of Customers
         n <- input$c
         
+        # SLA
+        sla_time <- input$sla
+        
         node_es <- NewInput.MM1(lambda=0, mu=es_service_rate, n=0)
         node_ps <- NewInput.MMC(lambda=0, mu=ps_service_rate, c=input$m_ps, n=0)
         node_ds <- NewInput.MM1(lambda=0, mu=ds_service_rate, n=0)
@@ -90,13 +94,13 @@ server <- function(input, output) {
         
         # Definition of the transition probabilities matrix
         
-        #            ES           PS    DS    OS     CS    FS
-        prob_es <- c( 0,           1,    0,    0,     0,    0)
-        prob_ps <- c( 0, (1-d)*(1-t),    d,  d*t,     0,    0)
-        prob_ds <- c( 0,     d*(1-t),    0,    t,     0,    0)
-        prob_os <- c( 0,           0,    0,    0,     1,    0)
-        prob_cs <- c( 0,           0,    0,    0,     0,    1)
-        prob_fs <- c( k,           0,    0,    0, (1-k),    0)
+        #            ES           PS    DS        OS     CS    FS
+        prob_es <- c( 0,           1,    0,       0,     0,    0)
+        prob_ps <- c( 0, (1-d)*(1-t),    d, (1-d)*t,     0,    0)
+        prob_ds <- c( 0,       (1-t),    0,       t,     0,    0)
+        prob_os <- c( 0,           0,    0,       0,     1,    0)
+        prob_cs <- c( 0,           0,    0,       0,     0,    1)
+        prob_fs <- c( k,           0,    0,       0, (1-k),    0)
         
         prob <- matrix(data=c(prob_es, prob_ps, prob_ds, prob_os, prob_cs, prob_fs), nrow=6, ncol=6, byrow=TRUE)
         
@@ -131,7 +135,7 @@ server <- function(input, output) {
         sum <- summary(m_cjn1)
         
         # return all object as a list
-        list(througput = result_throughput, mean_customers = m_cjn1$Lk, mean_time = result_mean_time, sum = sum, rok = m_cjn1$ROk)
+        list(througput = result_throughput, mean_customers = m_cjn1$Lk, mean_time = result_mean_time, sum = sum, rok = m_cjn1$ROk, sla_time = sla_time)
     })
     
     output$imgDiagram <- renderImage({
@@ -152,7 +156,11 @@ server <- function(input, output) {
     output$responseTimePlot <- renderPlot({
         m = model()
         df <- data.frame(cust=c(1:input$c), thro=m$mean_time)
-        ggplot(df, aes(x=cust, y=thro,)) + geom_point() + geom_smooth() + labs(title="Mean time evolution") + xlab("# Jobs") + ylab("Mean time") + theme(text = element_text(size=18))
+        ggplot(df, aes(x=cust, y=thro,)) + geom_point() + geom_smooth() + 
+            geom_hline(yintercept=m$sla_time, linetype="dashed", color = "red", size = 1.5) + 
+            geom_text(aes(0, m$sla_time,label = "SLA Limit", vjust = -1)) + 
+            labs(title="Mean time evolution") + xlab("# Jobs") + ylab("Mean time") + 
+            theme(text = element_text(size=18))
         #plot(1:input$c, m$mean_time, main = "Mean time evolution", ylab = "Mean Time", xlab = "# Customers", type = "l", col = "blue")
     })
     
