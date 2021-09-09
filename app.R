@@ -1,7 +1,20 @@
-library(shiny)
-library(queueing)
-library(magick)
-library(ggplot2)
+# This code will install required packages if they are not already installed
+if (!require("shiny")) {
+    install.packages("shiny")
+    library(shiny)
+}
+if (!require("queueing")) {
+    install.packages("queueing")
+    library(queueing)
+}
+if (!require("magick")) {
+    install.packages("magick")
+    library(magick)
+}
+if (!require("ggplot2")) {
+    install.packages("ggplot2")
+    library(ggplot2)
+}
 
 # Define UI for application
 ui <- fluidPage(
